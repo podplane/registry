@@ -1,0 +1,36 @@
+# Podplane <https://podplane.dev>
+# Copyright The Podplane Authors
+# SPDX-License-Identifier: Apache-2.0
+
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  validate:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+      - uses: actions/setup-go@44694675825211faa026b3c33043df3e48a5fa00 # v6.0.0
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: make check-generated
+      - run: make precommit
+      - run: make lint
+      - run: make test
+      - run: make build
+      - name: Install SeaweedFS
+        run: |
+          curl --fail --location --silent --show-error \
+            https://github.com/seaweedfs/seaweedfs/releases/download/4.44/linux_amd64_full.tar.gz \
+            --output /tmp/seaweedfs.tar.gz
+          echo '32669faa4431c9e659f0dd998b628841fb525d059a32daff4e97c6323ffc83b212dddfc4499da820cc8250e234d225b37761fc3e94ff2d1400eaf3d9675e3fd3  /tmp/seaweedfs.tar.gz' | sha512sum --check
+          sudo tar --extract --gzip --file /tmp/seaweedfs.tar.gz --directory /usr/local/bin weed
+      - run: make e2e

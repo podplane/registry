@@ -1,0 +1,39 @@
+# Podplane <https://podplane.dev>
+# Copyright The Podplane Authors
+# SPDX-License-Identifier: Apache-2.0
+
+version: 2
+project_name: registry
+before:
+  hooks: [make check-generated, make precommit, make lint, make test]
+builds:
+  - main: ./cmd/registry
+    env: [CGO_ENABLED=0]
+    goos: [linux, darwin]
+    goarch: [amd64, arm64]
+    ldflags:
+      - -s -w
+      - -X github.com/podplane/registry/internal/buildvars.buildVersion={{ .Tag }}
+      - -X github.com/podplane/registry/internal/buildvars.buildDate={{ .Date }}
+      - -X github.com/podplane/registry/internal/buildvars.commitHash={{ .FullCommit }}
+      - -X github.com/podplane/registry/internal/buildvars.commitDate={{ .CommitDate }}
+      - -X github.com/podplane/registry/internal/buildvars.commitBranch={{ if .Branch }}{{ .Branch }}{{ else }}unknown{{ end }}
+archives:
+  - formats: [tar.gz]
+    files: [LICENSE]
+checksum:
+  name_template: registry_{{ .Version }}_checksums.txt
+  algorithm: sha512
+signs:
+  - artifacts: checksum
+    cmd: cosign
+    signature: "${artifact}.bundle"
+    args: [sign-blob, --yes, "--bundle=${signature}", "${artifact}"]
+    output: true
+sboms:
+  - id: archives
+    artifacts: archive
+  - id: binaries
+    artifacts: binary
+release:
+  replace_existing_artifacts: false
